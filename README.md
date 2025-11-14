@@ -1,6 +1,6 @@
 # 🛍️ Sistema de Tienda de Ropa Online
 
-Sistema completo de e-commerce para una tienda de ropa desarrollado con MERN Stack (MongoDB, Express, React, Node.js) y TypeScript.
+Sistema completo de e-commerce para una tienda de ropa desarrollado con Node.js, Express, React, SQLite y TypeScript.
 
 ## 📋 Características
 
@@ -20,7 +20,7 @@ Sistema completo de e-commerce para una tienda de ropa desarrollado con MERN Sta
 ### Backend
 - 🚀 API REST con Node.js y Express
 - 🔒 Autenticación JWT
-- 📊 Base de datos MongoDB con Mongoose
+- 📊 Base de datos SQLite con Sequelize ORM
 - 🔐 Hash de contraseñas con bcrypt
 - ✅ Validación de datos
 - 🎭 Manejo de roles (cliente/admin)
@@ -42,8 +42,8 @@ Sistema completo de e-commerce para una tienda de ropa desarrollado con MERN Sta
 - Node.js
 - Express
 - TypeScript
-- MongoDB
-- Mongoose
+- SQLite
+- Sequelize ORM
 - JWT (jsonwebtoken)
 - bcryptjs
 - CORS
@@ -112,8 +112,9 @@ ecommerce/
 
 ### Prerrequisitos
 - Node.js (v16 o superior)
-- MongoDB instalado y ejecutándose localmente
 - npm o yarn
+
+**Nota:** Ya no necesitas instalar MongoDB. El proyecto usa SQLite, que se crea automáticamente como un archivo local.
 
 ### Paso 1: Clonar el repositorio
 ```bash
@@ -134,7 +135,7 @@ cp .env.example .env
 
 # Editar .env con tus configuraciones
 # PORT=5000
-# MONGODB_URI=mongodb://localhost:27017/tienda-ropa
+# DB_PATH=./database.sqlite
 # JWT_SECRET=tu_clave_secreta_muy_segura
 # NODE_ENV=development
 ```
@@ -226,17 +227,7 @@ La aplicación estará disponible en `http://localhost:3000`
 
 ## 📝 Crear Usuario Administrador
 
-Para crear un usuario administrador, registra un usuario normalmente y luego actualiza su rol en la base de datos:
-
-```javascript
-// En MongoDB
-db.users.updateOne(
-  { email: "admin@example.com" },
-  { $set: { rol: "admin" } }
-)
-```
-
-O al registrar, envía el rol en el body (nota: en producción, esto debería estar protegido):
+**Opción 1:** Al registrar, envía el rol en el body (nota: en producción, esto debería estar protegido):
 
 ```json
 {
@@ -245,6 +236,12 @@ O al registrar, envía el rol en el body (nota: en producción, esto debería es
   "password": "contraseña123",
   "rol": "admin"
 }
+```
+
+**Opción 2:** Actualizar directamente en la base de datos SQLite usando cualquier cliente SQLite (como [DB Browser for SQLite](https://sqlitebrowser.org/)):
+
+```sql
+UPDATE users SET rol = 'admin' WHERE email = 'admin@example.com';
 ```
 
 ## 🎨 Características de la Interfaz
@@ -268,15 +265,10 @@ O al registrar, envía el rol en el body (nota: en producción, esto debería es
 
 ## 🐛 Solución de Problemas
 
-### Error de conexión a MongoDB
-```bash
-# Asegúrate de que MongoDB esté ejecutándose
-# En Linux/Mac:
-sudo systemctl start mongod
+### Base de datos
+La base de datos SQLite se crea automáticamente la primera vez que ejecutas el servidor. El archivo `database.sqlite` se generará en la carpeta `backend/` (o en la ubicación especificada en `DB_PATH`).
 
-# En Windows:
-net start MongoDB
-```
+Si necesitas resetear la base de datos, simplemente elimina el archivo `database.sqlite` y se volverá a crear cuando inicies el servidor.
 
 ### Puerto en uso
 Si el puerto 5000 o 3000 ya está en uso, puedes cambiarlos en:

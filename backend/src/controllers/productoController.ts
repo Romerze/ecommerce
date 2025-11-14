@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Op } from 'sequelize';
 import Producto from '../models/Producto';
 
 // Obtener todos los productos con filtros
@@ -6,27 +7,34 @@ export const obtenerProductos = async (req: Request, res: Response): Promise<voi
   try {
     const { categoria, precioMin, precioMax, busqueda, destacado } = req.query;
 
-    let filtro: any = {};
+    const where: any = {};
 
     if (categoria) {
-      filtro.categoria = categoria;
+      where.categoria = categoria;
     }
 
     if (precioMin || precioMax) {
-      filtro.precio = {};
-      if (precioMin) filtro.precio.$gte = Number(precioMin);
-      if (precioMax) filtro.precio.$lte = Number(precioMax);
+      where.precio = {};
+      if (precioMin) where.precio[Op.gte] = Number(precioMin);
+      if (precioMax) where.precio[Op.lte] = Number(precioMax);
     }
 
     if (busqueda) {
-      filtro.$text = { $search: busqueda as string };
+      where[Op.or] = [
+        { nombre: { [Op.like]: `%${busqueda}%` } },
+        { descripcion: { [Op.like]: `%${busqueda}%` } }
+      ];
     }
 
     if (destacado === 'true') {
-      filtro.destacado = true;
+      where.destacado = true;
     }
 
-    const productos = await Producto.find(filtro).sort({ createdAt: -1 });
+    const productos = await Producto.findAll({
+      where,
+      order: [['createdAt', 'DESC']]
+    });
+
     res.json(productos);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -36,7 +44,7 @@ export const obtenerProductos = async (req: Request, res: Response): Promise<voi
 // Obtener producto por ID
 export const obtenerProductoPorId = async (req: Request, res: Response): Promise<void> => {
   try {
-    const producto = await Producto.findById(req.params.id);
+    const producto = await Producto.findByPk(req.params.id);
 
     if (!producto) {
       res.status(404).json({ error: 'Producto no encontrado' });
@@ -52,8 +60,7 @@ export const obtenerProductoPorId = async (req: Request, res: Response): Promise
 // Crear producto (solo admin)
 export const crearProducto = async (req: Request, res: Response): Promise<void> => {
   try {
-    const producto = new Producto(req.body);
-    await producto.save();
+    const producto = await Producto.create(req.body);
     res.status(201).json(producto);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -63,17 +70,14 @@ export const crearProducto = async (req: Request, res: Response): Promise<void> 
 // Actualizar producto (solo admin)
 export const actualizarProducto = async (req: Request, res: Response): Promise<void> => {
   try {
-    const producto = await Producto.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const producto = await Producto.findByPk(req.params.id);
 
     if (!producto) {
       res.status(404).json({ error: 'Producto no encontrado' });
       return;
     }
 
+    await producto.update(req.body);
     res.json(producto);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -83,13 +87,14 @@ export const actualizarProducto = async (req: Request, res: Response): Promise<v
 // Eliminar producto (solo admin)
 export const eliminarProducto = async (req: Request, res: Response): Promise<void> => {
   try {
-    const producto = await Producto.findByIdAndDelete(req.params.id);
+    const producto = await Producto.findByPk(req.params.id);
 
     if (!producto) {
       res.status(404).json({ error: 'Producto no encontrado' });
       return;
     }
 
+    await producto.destroy();
     res.json({ mensaje: 'Producto eliminado exitosamente' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

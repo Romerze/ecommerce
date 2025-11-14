@@ -8,14 +8,14 @@ export const registrar = async (req: Request, res: Response): Promise<void> => {
     const { nombre, email, password, rol, direccion, telefono } = req.body;
 
     // Verificar si el usuario ya existe
-    const usuarioExistente = await User.findOne({ email });
+    const usuarioExistente = await User.findOne({ where: { email } });
     if (usuarioExistente) {
       res.status(400).json({ error: 'El email ya está registrado' });
       return;
     }
 
     // Crear nuevo usuario
-    const usuario = new User({
+    const usuario = await User.create({
       nombre,
       email,
       password,
@@ -24,12 +24,10 @@ export const registrar = async (req: Request, res: Response): Promise<void> => {
       telefono
     });
 
-    await usuario.save();
-
     // Generar token
     const jwtSecret = process.env.JWT_SECRET || 'secret';
     const token = jwt.sign(
-      { userId: usuario._id, rol: usuario.rol },
+      { userId: usuario.id, rol: usuario.rol },
       jwtSecret,
       { expiresIn: '7d' }
     );
@@ -38,7 +36,7 @@ export const registrar = async (req: Request, res: Response): Promise<void> => {
       mensaje: 'Usuario registrado exitosamente',
       token,
       usuario: {
-        id: usuario._id,
+        id: usuario.id,
         nombre: usuario.nombre,
         email: usuario.email,
         rol: usuario.rol
@@ -55,7 +53,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body;
 
     // Buscar usuario
-    const usuario = await User.findOne({ email });
+    const usuario = await User.findOne({ where: { email } });
     if (!usuario) {
       res.status(401).json({ error: 'Credenciales inválidas' });
       return;
@@ -71,7 +69,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Generar token
     const jwtSecret = process.env.JWT_SECRET || 'secret';
     const token = jwt.sign(
-      { userId: usuario._id, rol: usuario.rol },
+      { userId: usuario.id, rol: usuario.rol },
       jwtSecret,
       { expiresIn: '7d' }
     );
@@ -80,7 +78,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       mensaje: 'Login exitoso',
       token,
       usuario: {
-        id: usuario._id,
+        id: usuario.id,
         nombre: usuario.nombre,
         email: usuario.email,
         rol: usuario.rol
@@ -95,7 +93,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 export const obtenerPerfil = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.userId;
-    const usuario = await User.findById(userId).select('-password');
+    const usuario = await User.findByPk(userId, {
+      attributes: { exclude: ['password'] }
+    });
 
     if (!usuario) {
       res.status(404).json({ error: 'Usuario no encontrado' });

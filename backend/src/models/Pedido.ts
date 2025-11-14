@@ -1,60 +1,131 @@
-import mongoose, { Schema, Document } from 'mongoose';
-import { IPedido } from '../types';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../config/database';
+import User from './User';
+import Producto from './Producto';
 
-interface IPedidoDocument extends IPedido, Document {}
+interface ItemPedido {
+  producto: number;
+  cantidad: number;
+  talla: string;
+  color: string;
+  precio: number;
+}
 
-const pedidoSchema = new Schema<IPedidoDocument>({
-  usuario: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  items: [{
-    producto: {
-      type: Schema.Types.ObjectId,
-      ref: 'Producto',
-      required: true
+interface DireccionEnvio {
+  calle: string;
+  ciudad: string;
+  codigoPostal: string;
+  pais: string;
+}
+
+interface PedidoAttributes {
+  id: number;
+  usuarioId: number;
+  items: ItemPedido[];
+  total: number;
+  estado: 'pendiente' | 'procesando' | 'enviado' | 'entregado' | 'cancelado';
+  direccionEnvio: DireccionEnvio;
+  metodoPago: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+interface PedidoCreationAttributes extends Optional<PedidoAttributes, 'id' | 'estado' | 'createdAt' | 'updatedAt'> {}
+
+class Pedido extends Model<PedidoAttributes, PedidoCreationAttributes> implements PedidoAttributes {
+  public id!: number;
+  public usuarioId!: number;
+  public items!: ItemPedido[];
+  public total!: number;
+  public estado!: 'pendiente' | 'procesando' | 'enviado' | 'entregado' | 'cancelado';
+  public direccionEnvio!: DireccionEnvio;
+  public metodoPago!: string;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+
+  // Asociaciones
+  public readonly usuario?: User;
+}
+
+Pedido.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
     },
-    cantidad: {
-      type: Number,
-      required: true,
-      min: 1
+    usuarioId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id',
+      },
     },
-    talla: {
-      type: String,
-      required: true
+    items: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: [],
+      validate: {
+        isValidItems(value: any) {
+          if (!Array.isArray(value) || value.length === 0) {
+            throw new Error('El pedido debe tener al menos un item');
+          }
+        },
+      },
     },
-    color: {
-      type: String,
-      required: true
+    total: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      validate: {
+        min: {
+          args: [0],
+          msg: 'El total no puede ser negativo',
+        },
+      },
     },
-    precio: {
-      type: Number,
-      required: true
-    }
-  }],
-  total: {
-    type: Number,
-    required: true,
-    min: 0
+    estado: {
+      type: DataTypes.ENUM('pendiente', 'procesando', 'enviado', 'entregado', 'cancelado'),
+      defaultValue: 'pendiente',
+      allowNull: false,
+    },
+    direccionEnvio: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      validate: {
+        isValidAddress(value: any) {
+          if (!value || !value.calle || !value.ciudad || !value.codigoPostal || !value.pais) {
+            throw new Error('La dirección de envío debe estar completa');
+          }
+        },
+      },
+    },
+    metodoPago: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notEmpty: {
+          msg: 'El método de pago es obligatorio',
+        },
+      },
+    },
   },
-  estado: {
-    type: String,
-    enum: ['pendiente', 'procesando', 'enviado', 'entregado', 'cancelado'],
-    default: 'pendiente'
-  },
-  direccionEnvio: {
-    calle: { type: String, required: true },
-    ciudad: { type: String, required: true },
-    codigoPostal: { type: String, required: true },
-    pais: { type: String, required: true }
-  },
-  metodoPago: {
-    type: String,
-    required: true
+  {
+    sequelize,
+    tableName: 'pedidos',
+    timestamps: true,
   }
-}, {
-  timestamps: true
+);
+
+// Definir asociaciones
+Pedido.belongsTo(User, {
+  foreignKey: 'usuarioId',
+  as: 'usuario',
 });
 
-export default mongoose.model<IPedidoDocument>('Pedido', pedidoSchema);
+User.hasMany(Pedido, {
+  foreignKey: 'usuarioId',
+  as: 'pedidos',
+});
+
+export default Pedido;

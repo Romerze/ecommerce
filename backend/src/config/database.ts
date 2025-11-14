@@ -1,17 +1,28 @@
-import mongoose from 'mongoose';
+import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const connectDB = async (): Promise<void> => {
+const dbPath = process.env.DB_PATH || './database.sqlite';
+
+const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: dbPath,
+  logging: process.env.NODE_ENV === 'development' ? console.log : false,
+});
+
+export const connectDB = async (): Promise<void> => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/tienda-ropa';
-    await mongoose.connect(mongoURI);
-    console.log('✅ MongoDB conectado correctamente');
+    await sequelize.authenticate();
+    console.log('✅ SQLite conectado correctamente');
+
+    // Sincronizar modelos con la base de datos
+    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    console.log('✅ Modelos sincronizados con la base de datos');
   } catch (error) {
-    console.error('❌ Error al conectar a MongoDB:', error);
+    console.error('❌ Error al conectar a SQLite:', error);
     process.exit(1);
   }
 };
 
-export default connectDB;
+export default sequelize;
